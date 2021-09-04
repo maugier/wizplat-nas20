@@ -211,6 +211,7 @@ it and hit `Ctrl-C` before the 10-second bootloader delay expires, or use the re
 afterwards, without turning the power off.
 
 
+![Bus Pirate connected to the board](images/bus-pirate.jpg)
 
 
 ```
