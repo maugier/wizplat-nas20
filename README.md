@@ -58,6 +58,8 @@ The assumed pin layout would be, from left to right:
  - TX (device to console)
  - 5V source.
 
+![Debug port](images/debug-port.jpg)
+
 We connect the Bus Pirate to the host (linux) computer, and start Minicom on the new serial port
 that just appeared:
 
