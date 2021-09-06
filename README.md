@@ -292,21 +292,31 @@ We start by downloading the latest buildroot from the official Git repository,
 and enter the configuration interface:
 
 ```
-git clone git://git.buildroot.net/buildroot
-cd buildroot
-make menuconfig
+$ git clone git://git.buildroot.net/buildroot
+$ cd buildroot
+$ make menuconfig
 ```
 
 The buildroot menuconfig interface, like the linux kernel one, saves its settings in a
 file `.config`, in the top-level buildroot directory.
 Here is the [full config](./buildroot-config) file, after making the correct choices.
 
-Under Target Options, we choose the ARM (little endian) architecture. As we saw from the
+### Configuring Buildroot
+
+Under `Target Options`, we choose the `ARM (little endian)` architecture. As we saw from the
 failing boot log, the CPU inside the Storlink SoC is a Faraday 526 ARMv4 core, so we pick this
-as the target variant.
+as the target variant (`fa526/626`).
 
 The plain Linux kernel does not come with a default configuration for our obscure board.
-We will specify a full custom kernel configuration file.
+Under `Kernel`, `Kernel configuration`, we will pick `Use a custom config file`.
+
+Under `Kernel binary format`, we choose `zImage with appended DT`, for reasons that will be
+explained in the later paragraph.
+
+This will automatically enable the `Build a Device Tree Blob` option; we will use the
+`Out-of-tree Device Tree Source` option to provide our custom device tree.
+
+### Configuring the Kernel
 
 ## Creating a Device Tree
 
@@ -332,7 +342,74 @@ Fortunately, there is a way to bypass this limitation; instead of having the ker
 at the address passed by the bootloader, we can hardcode a single DTB in the kernel itself. That
 results in a non-portable kernel that only works on this specific board.
 
-In the Buildroot menuconfig, make sure to choose `zImage + DTB` to get a hardcoded DTB.
+## Testing our kernel
+
+The bootloader will let us load kernels from flash, tftp, disk, or xmodem (via the serial console).
+
+For development, we don't want to wear out the flash chip by repeatedly rewriting the kernel.
+at 19200bps, xmodem would take 20 minutes to load a 3MiB kernel. Disk is inconvenient, as we would need
+to repeatedly change the wiring. TFTP is the only viable option.
+
+The device, by default, uses an IP address of `192.168.123.33`. We connect the NAS to our computer's
+network port, and configure the local computer to use `192.168.123.1`:
+§
+```
+# ip addr add 192.168.123.1/24 dev eth0
+```
+
+We need a TFTP server for the NAS to fetch the test kernel. Tftpy, written in python, is simple enough
+and does the job correctly.
+
+```
+# pip3 install tftpy
+```
+
+Start the TFTP server, publishing buildroot's output image directory:
+
+```
+# tftpy_server.py -r buildroot/output/images
+```
+
+Note that the TFTP server has to run as root (or with NET_CAP_BIND) to bind the default
+TFTP port (udp 69), as the bootloader doesn't seem to offer a way to use an alternate port.
+
+Reboot the NAS, and hit `Ctrl-C` to enter the bootloader menu. Choose option `5` to enter
+command line mode:
+
+
+<pre>
+==============================================================================
+T: PCB Test!!!                              Z: BootLoader Update!!!
+X: Upgrade Firmware                         L: All LED & Fan (Turn ON) Test!!!
+M: All LED & Fan (Turn OFF) Test!!!         S: Shut down PCB!!!
+Y: Upgrade MAC                              0: Reboot
+1: Start the Kernel Code                    2: List Image
+3: Delete Image                             4: Create New Image
+5: Enter Command Line Interface             6: Set IP Address
+7: Set MAC Address                          8: Show Configuration
+9: Upgrade MAC                              F: Create Default FIS
+I: Initialize IDE                           X: Upgrade Boot
+Y: Upgrade Kernel                           Z: Upgrade Firmware
+A: Upgrade Application                      R: Upgrade RAM Disk
+N: Upgrade Bootloader(SDK)                  
+
+=> Select: 5
+
+
+nas&gt;<b>load</b>
+Usage: load -m [tftp | xmodem | disk | flash] -b [location]
+  Load data to [location] by/from TFTP, xModem, disk, or flash
+
+nas&gt;<b>load -m tftp -b 0x01600000</b>
+TFTP Server IP Address: <b>192.168.123.1</b>
+Image Path and name(e.g. /image_path/image_name): <b>/zImage.gemini-nas40</b>
+TFTP Download /zImage.gemini-nas40 from 192.168.123.1 ..............................
+
+Successful to download by TFTP! Size=3148379
+
+nas&gt;
+</pre>
+
 
 ## Credits
 
