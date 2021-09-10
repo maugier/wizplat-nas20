@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Device Tree file for the Gemini-based Raidsonic NAS IB-4220-B
+ * Device Tree file for the Gemini-based Sarotech Wizplat NAS-20
  */
 
 /dts-v1/;
@@ -17,36 +17,17 @@
 
 	memory@0 { /* 128 MB */
 		device_type = "memory";
-		/* reg = <0x00000000 0x4000000>; */
+		/* The device has 128M installed but they are probably at another
+                   address range? Using 0x4000000-0x8000000 causes the kernel to oops */
+		/* reg = <0x00000000 0x8000000>; */
 		reg = <0x00000000 0x4000000>;
 	};
 
 
 	chosen {
-		bootargs = "console=ttyS0,19200 rootdelay=10 root=/dev/sda1";
+		bootargs = "console=ttyS0,19200 rootdelay=2";
 		stdout-path = &uart0;
 	};
-
-//	gpio_keys {
-//		compatible = "gpio-keys";
-//
-//		button-setup {
-//			debounce-interval = <100>;
-//			wakeup-source;
-//			linux,code = <KEY_SETUP>;
-//			label = "Backup button";
-//			/* Conflict with TVC */
-//			gpios = <&gpio1 29 GPIO_ACTIVE_LOW>;
-//		};
-//		button-restart {
-//			debounce-interval = <100>;
-//			wakeup-source;
-//			linux,code = <KEY_RESTART>;
-//			label = "Softreset button";
-//			/* Conflict with TVC */
-//			gpios = <&gpio1 31 GPIO_ACTIVE_LOW>;
-//		};
-//	};
 
 	leds {
 		compatible = "gpio-leds";
