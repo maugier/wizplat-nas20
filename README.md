@@ -1,31 +1,54 @@
 # Repairing and Upgrading a Sarotech/Wizplat NAS-20, in 2021
 
-The Wizplat NAS-20 is a cheap NAS box running linux. I got a free one, with the
-hardware in good condition, but unresponsive: connecting the device to the network
-and starting it would power up the Ethernet link, but not generate any traffic.
+The Wizplat NAS-20 is a cheap NAS box running linux, with room for two SATA 3.5'' disks, 
+a Gigabit Ethernet port, and two usb 2 ports.
+
+I got a free one from a friend, a long time ago; a firmware upgrade apparently bricked it.
+The hardware in good condition, but unresponsive: connecting the device to the network
+and starting it would power up the Ethernet link, but not generate any traffic. The company
+website has long disappeared, and it is impossible to get an old firmware from it, let
+alone a modern one.
+
+If you are interested in the full repair story, read on; or you can jump straight
+to the [Install](#flashing-the-new-firmware) section.
+
+THIS IS PROVIDED FOR EDUCATIONAL USE ONLY, AND COMES WITH NO GUARANTEE. USE AT YOUR OWN RISK.
 
 ## Disassembly
 
-The device was easy to disassemble, using only a couple of standard screws at the front and back.
-It contains a single circuit board, fitted between the two hard disk slots. Here are some pictures
-of the board:
+A thumbscrew at the bottom opens the front panel, for easy access to the hard drive slots.
+The main board lies between the two hard drive slots.
+There are also two phillips screws for the led mounting bracket, connected to the circuit
+board by a short ribbon cable. We need to detach the bracket to pull out the board from the
+back.
+
+![hard drive slots](images/open.jpg)
+
+On the back are the Ethernet and USB ports, a small fan, a power button, and two small buttons
+labeled "Reset" and "Initialize".
+Removing the 4 back screws allows us to remove the back panel, and the attached board. The rest
+is just a solid metal case and two decorative plastic panels. 
+
+![back of the device](images/back.jpg)
+
+Let's have a look at the board:
 
 ![PCB front](images/nas40-pcb-over.jpg)
 
 On the top side of the board, we can identify the following components,
 and identify them with a web search. From left to right, we have:
 
-  - Two DDR SDRAM chips, with a capacity of 64 MiB each (Samsung K4H51638D-UCCC)
-  - A System-on-Chip (SoC) containing an ARM CPU and several integrated peripherals (Storlink SL3516/Cortina CS3516)
-  - A Gigabit Ethernet tranceiver (Marvell 88E1111-RCJ1)
-  - A 16MiB flash memory chip (Cypress S29GL128P)
+  - Two Samsung DDR SDRAM chips, with a capacity of 64 MiB each (K4H51638D-UCCC)
+  - A Storlink System-on-Chip (SoC) containing an ARM CPU and several integrated peripherals (Storlink SL3516/Cortina CS3516)
+  - A Marvell Gigabit Ethernet tranceiver (88E1111-RCJ1)
+  - A Cypress 16MiB flash memory chip (S29GL128P)
 
 ![PCB back](images/nas40-pcb-under.jpg)
 
 On the underside of the board, we find:
   - Two SATA cables soldered directly to the board
   - A buzzer
-  - A ribbon connector going to the front panel, bearing 8 LEDs
+  - The ribbon connector going to the front panel, and its 8 LEDs
   - A mysterious unlabeled 4-pin connector
 
 
@@ -643,7 +666,55 @@ in initrd/initramfs.
 
 We can avoid the first problem by using a kexec-enabled kernel. This way, the kernel/initramfs
 written in the flash can act as a sophisticated bootloader that can load another more recent
-kernel from disk.
+kernel from disk, or just switch to another root after assembling raid.
+
+Unfortunately, Buildroot does not seem to support building a separate rootfs, so we will maintain
+two separate buildroot configs; a [minimalistic one](buildroot-initramfs-config) for our initramfs,
+that we will embed directly into the kernel, and the main one to be installed on disk with all the
+interesting features.
+
+The resulting kernel is a little bit under 8M, and will only fit in the flash if we redimension
+the flash partitions a little bit.
+
+## Flashing the new firmware 
+
+- Get a properly partitioned USB key with at least 55M of space
+- `cd` to the directory containing the project files
+- Install the rootfs on the key with `dd if=rootfs.ext2 of=/dev/sdX1`. (Change the
+device name to match your usb key)
+- Configure your host system with an IP address of 192.168.123.1/24
+- Create an empty dummy 1MB ramdisk with `truncate -s 1M dummy-ramdisk`
+- Extend the zImage to exactly 8MB with `truncate -s 8M zImage`
+- Start a TFTP server in this directory, for instance `tftpy_server.py -r .`
+- Power on the board
+- Connect the UART cable to the debug port (Ground, RX, TX, Unconnected)
+- Start minicom on your host computer and connect to the UART cable, using 19200bps, 8n1, no
+flow control.
+- hit the Reset switch
+- At the bootloader prompt, hit Ctrl-C
+- Using the bootloader menu option (2), list the flash partition table
+and write it down.
+- Use the bootloader menu to delete the flash partitions Kern and Ramdisk
+- Use the bootloader menu to recreate the Kern partition, at the same address
+(0x30020000). At the prompt, request a TFTP upload, enter the IP address of your
+host machine (192.168.123.1), the filename `/zImage`.
+- Use the bootloader menu to recreate the Ramdisk partition. This time, upload the
+dummy ramdisk (`/dummy-ramdisk`)
+- Insert the USB key into the NAS
+- Connect the ethernet port to your home network (or make sure to run a dhcp server
+on your host computer)
+- Hit the reset switch
+
+After ~20 seconds, the "ready" led should start blinking fast (2x per second) to indicate
+the kernel is loaded. After that, the led will turn solid green if it could successfully mount the rootfs.
+
+From there, you can login from the serial console or via ssh, user "root", password "nas".
+You can partition the disks, setup software RAID with mdadm, and create a new internal
+root filesystem. 
+
+Label the root filesystem "rootfs" so that the kernel can find it. After that, you should
+be able to boot the NAS without the USB key.
+
 
 ## Credits
 
