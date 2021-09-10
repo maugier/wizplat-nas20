@@ -318,6 +318,8 @@ This will automatically enable the `Build a Device Tree Blob` option; we will us
 
 ### Configuring the Kernel
 
+TODO
+
 ## Creating a Device Tree
 
 A CPU architecture specification determines the behavior of the CPU, but not the configuration
@@ -629,6 +631,19 @@ Starting dropbear sshd: OK
 Welcome to Buildroot
 nas login:
 </pre>
+
+## Future-proofing the system
+
+This working setup has two drawbacks: the root device is hardcoded into the kernel, and
+upgrading the kernel requires reflashing a MTD partition.
+
+To avoid the root device problem, we can identify the correct device with a filesystem
+label, but this feature is not supported by the kernel; it is handled by the userspace
+in initrd/initramfs.
+
+We can avoid the first problem by using a kexec-enabled kernel. This way, the kernel/initramfs
+written in the flash can act as a sophisticated bootloader that can load another more recent
+kernel from disk.
 
 ## Credits
 
