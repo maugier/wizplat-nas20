@@ -1,5 +1,7 @@
 # Repairing and Upgrading a Sarotech/Wizplat NAS-20, in 2021
 
+**WORK IN PROGRESS**
+
 The Wizplat NAS-20 is a cheap NAS box running linux, with room for two SATA 3.5'' disks, 
 a Gigabit Ethernet port, and two usb 2 ports.
 
